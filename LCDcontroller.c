@@ -13,6 +13,28 @@
 #define LCD_CE			PC2
 #define LCD_RST			PC3
 
+volatile uint32_t msTicks = 0;
+
+void Delay(uint32_t dlyTicks){
+      uint32_t curTicks;
+
+      curTicks = msTicks;
+      while ((msTicks - curTicks) < dlyTicks) ;
+}
+
+void send_char(char c){
+	while (!(USART2->SR & USART_SR_TXE));
+
+	USART2->DR = c;
+
+}
+
+void send_string(const char* s){
+	while (*s)
+	send_char(*s++);
+}
+
+
 int main(void){
 
 	SysTick_Config(8000);
@@ -40,6 +62,8 @@ int main(void){
 
 
 	//********** Program ***********
+	
+	//lcd setup
 	int i,j;
 	lcd_setup();
 	for(i=0; i<48; i++){
@@ -49,6 +73,26 @@ int main(void){
 			lcd_copy();
 	}
 	lcd_copy();
+	
+	//UART Setup
+	RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
+
+	gpio_pin_cfg(GPIOA, PA2, gpio_mode_alternate_PP_2MHz);
+	gpio_pin_cfg(GPIOA, PA3, gpio_mode_input_floating);
+
+	gpio_pin_cfg(GPIOC, PC0, gpio_mode_output_PP_2MHz);
+	gpio_pin_cfg(GPIOC, PC1, gpio_mode_output_PP_2MHz);
+	gpio_pin_cfg(GPIOC, PC2, gpio_mode_output_PP_2MHz);
+
+	USART2->BRR = 8000000/9600;
+	USART2->CR1 = USART_CR1_UE | USART_CR1_TE | USART_CR1_RE;
+	
+	int size = 3;
+	unsigned int index = 0;
+	char *my_buffer;
+	my_buffer = malloc(sizeof(char) * size);
+	memset(my_buffer, 0, sizeof(char) * size);
+	
 	
 	// turning a line on LCD
 	while (1) {
@@ -65,6 +109,31 @@ int main(void){
 
 		lcd_copy();
 
+		// UART controll bt console		
+		if (USART2->SR & USART_SR_RXNE)	{
+			USART2->SR &= ~USART_SR_RXNE;
+			char c = USART2->DR;
+			my_buffer[index++] = c;
+
+			if(c == '\n' || c == '\r')
+			{
+				if(!strncmp(my_buffer, "on\r", 3) || !strncmp(my_buffer, "on\n", 3))
+				{
+					send_string("Power ON\n\r");
+					BB(GPIOC->ODR, PC0) = 1;
+				}
+				else if(!strncmp(my_buffer, "off\r", 4) || !strncmp(my_buffer, "off\n", 4))
+				{
+					send_string("Power OFF\n\r");
+					BB(GPIOC->ODR, PC0) = 0;
+				}
+				else {
+					send_string("Blad\n\r");
+				}
+				memset(my_buffer, 0, sizeof(char) * size);
+				index=0;
+			}
+		}
 		delay_ms(100);
 	}
 
