@@ -13,14 +13,6 @@
 #define LCD_CE			PC2
 #define LCD_RST			PC3
 
-volatile uint32_t msTicks = 0;
-
-void Delay(uint32_t dlyTicks){
-      uint32_t curTicks;
-
-      curTicks = msTicks;
-      while ((msTicks - curTicks) < dlyTicks) ;
-}
 
 void send_char(char c){
 	while (!(USART2->SR & USART_SR_TXE));
@@ -50,6 +42,8 @@ int main(void){
 	gpio_pin_cfg(GPIOC, LCD_CE, gpio_mode_output_PP_10MHz);
 	gpio_pin_cfg(GPIOC, LCD_RST, gpio_mode_output_PP_10MHz);
 
+
+	//lcd setup
 	BB(GPIOC->ODR, LCD_RST) = 1;
 	delay_ms(10);
 	BB(GPIOC->ODR, LCD_RST) = 0;
@@ -57,13 +51,8 @@ int main(void){
 	BB(GPIOC->ODR, LCD_RST) = 1;
 	BB(GPIOC->ODR, LCD_CE) = 1;
 	BB(GPIOB->ODR, PB6) = 1;
-
-
-
-
-	//********** Program ***********
 	
-	//lcd setup
+	
 	int i,j;
 	lcd_setup();
 	for(i=0; i<48; i++){
